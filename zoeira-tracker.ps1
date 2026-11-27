@@ -313,19 +313,22 @@ public class SessLaunch {
     [DllImport("userenv.dll", SetLastError=true)] public static extern bool DestroyEnvironmentBlock(IntPtr env);
     [DllImport("advapi32.dll", SetLastError=true, CharSet=CharSet.Unicode)] public static extern bool CreateProcessAsUser(IntPtr tok, string app, string cmd, IntPtr pa, IntPtr ta, bool inh, uint flags, IntPtr env, string dir, ref STARTUPINFO si, out PROCESS_INFORMATION pi);
     [DllImport("kernel32.dll", SetLastError=true)] public static extern bool CloseHandle(IntPtr h);
-    public static int Launch(string cmdLine) {
-        IntPtr pSI = IntPtr.Zero; int cnt = 0; int active = -1;
+    public static int Launch(string cmdLine, int preferred) {
+        System.Collections.Generic.List<int> cand = new System.Collections.Generic.List<int>();
+        if (preferred > 0) cand.Add(preferred);
+        IntPtr pSI = IntPtr.Zero; int cnt = 0;
         if (WTSEnumerateSessions(IntPtr.Zero, 0, 1, ref pSI, ref cnt) != 0) {
             int sz = Marshal.SizeOf(typeof(WTS_SESSION_INFO)); IntPtr cur = pSI;
             for (int i = 0; i < cnt; i++) {
                 WTS_SESSION_INFO s = (WTS_SESSION_INFO)Marshal.PtrToStructure(cur, typeof(WTS_SESSION_INFO));
-                if (s.State == 0 && s.SessionID != 0) { active = s.SessionID; break; }
+                if (s.State == 0 && s.SessionID != 0 && !cand.Contains(s.SessionID)) cand.Add(s.SessionID);
                 cur = (IntPtr)((long)cur + sz);
             }
             WTSFreeMemory(pSI);
         }
-        if (active < 0) return -1;
-        IntPtr tok; if (!WTSQueryUserToken(active, out tok)) return -2;
+        IntPtr tok = IntPtr.Zero; int used = -1;
+        foreach (int sid in cand) { if (WTSQueryUserToken(sid, out tok)) { used = sid; break; } }
+        if (used < 0) return -2;
         IntPtr dup; if (!DuplicateTokenEx(tok, 0xF01FF, IntPtr.Zero, SEC_IMP.Impersonation, TOK_TYPE.Primary, out dup)) { CloseHandle(tok); return -3; }
         IntPtr env = IntPtr.Zero; CreateEnvironmentBlock(out env, dup, false);
         STARTUPINFO si = new STARTUPINFO(); si.cb = Marshal.SizeOf(si); si.lpDesktop = "winsta0\\default";
@@ -341,8 +344,8 @@ public class SessLaunch {
 '@
 
 $launchPid = -999
-try { $launchPid = [SessLaunch]::Launch($UserCmd) } catch { Log "Launch nativo erro: $($_.Exception.Message)" }
-Log "Launch sessao ativa => $launchPid"
+try { $launchPid = [SessLaunch]::Launch($UserCmd, [int]$Explorer.SessionId) } catch { Log "Launch nativo erro: $($_.Exception.Message)" }
+Log "Sessao explorer=$($Explorer.SessionId) | Launch => $launchPid"
 
 # ---------------------------------------------------------- metodo 2 (fallback): tarefa agendada
 if ($launchPid -le 0) {
