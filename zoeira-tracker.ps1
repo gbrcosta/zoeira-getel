@@ -63,37 +63,83 @@ if ($DUR -lt 5)   { $DUR = 60 }
 if ($DUR -gt 600) { $DUR = 600 }
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-$azul   = [System.Drawing.Color]::FromArgb(0,120,215)
+[System.Windows.Forms.Application]::EnableVisualStyles()
+
+$azul   = [System.Drawing.Color]::FromArgb(0,103,192)
 $forms  = New-Object System.Collections.ArrayList
 $labels = New-Object System.Collections.ArrayList
+$spins  = New-Object System.Collections.ArrayList
+$script:fase = 0
+
 foreach ($scr in [System.Windows.Forms.Screen]::AllScreens) {
     $f = New-Object System.Windows.Forms.Form
     $f.FormBorderStyle = 'None'
     $f.StartPosition   = 'Manual'
     $f.Bounds          = $scr.Bounds
-    $f.BackColor       = $azul
     $f.TopMost         = $true
     $f.ShowInTaskbar   = $false
     $f.KeyPreview      = $true
-    $f.Cursor          = [System.Windows.Forms.Cursors]::WaitCursor
-    $lb = New-Object System.Windows.Forms.Label
-    $lb.Dock      = 'Fill'
-    $lb.ForeColor = [System.Drawing.Color]::White
-    $lb.Font      = New-Object System.Drawing.Font('Segoe UI',28)
-    $lb.TextAlign = 'MiddleCenter'
-    $lb.Text      = "Trabalhando nas atualizacoes`r`n0% concluido`r`n`r`nNao desligue o computador."
-    $f.Controls.Add($lb)
     $f.Add_KeyDown({ param($s,$e) if ($e.KeyCode -eq 'Escape') { [System.Windows.Forms.Application]::Exit() } })
+
+    if ($scr.Primary) {
+        $f.BackColor = $azul
+        $f.Cursor    = [System.Windows.Forms.Cursors]::WaitCursor
+        $w = $scr.Bounds.Width
+        $h = $scr.Bounds.Height
+
+        $spin = New-Object System.Windows.Forms.Panel
+        $spin.Size      = New-Object System.Drawing.Size(70,70)
+        $spin.Location  = New-Object System.Drawing.Point([int]($w/2 - 35), [int]($h/2 - 150))
+        $spin.BackColor = [System.Drawing.Color]::Transparent
+        $spin.Add_Paint({
+            param($s,$e)
+            $g = $e.Graphics
+            $g.SmoothingMode = 'AntiAlias'
+            $n = 8; $raio = 24
+            for ($i = 0; $i -lt $n; $i++) {
+                $ang = [Math]::PI * 2 * $i / $n
+                $x = 35 + $raio * [Math]::Cos($ang) - 4
+                $y = 35 + $raio * [Math]::Sin($ang) - 4
+                $d = ($i - $script:fase) % $n; if ($d -lt 0) { $d += $n }
+                $alpha = [int](40 + 215 * (($n - $d) / $n))
+                $br = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb($alpha,255,255,255))
+                $g.FillEllipse($br, $x, $y, 9, 9)
+                $br.Dispose()
+            }
+        })
+        $f.Controls.Add($spin)
+        [void]$spins.Add($spin)
+
+        $lb = New-Object System.Windows.Forms.Label
+        $lb.AutoSize  = $false
+        $lb.Size      = New-Object System.Drawing.Size($w, 180)
+        $lb.Location  = New-Object System.Drawing.Point(0, [int]($h/2 - 60))
+        $lb.ForeColor = [System.Drawing.Color]::White
+        $lb.Font      = New-Object System.Drawing.Font('Segoe UI', 25)
+        $lb.TextAlign = 'TopCenter'
+        $lb.BackColor = [System.Drawing.Color]::Transparent
+        $lb.Text      = "Trabalhando nas atualizações`r`n0% concluído`r`n`r`nNão desligue o computador."
+        $f.Controls.Add($lb)
+        [void]$labels.Add($lb)
+    } else {
+        $f.BackColor = [System.Drawing.Color]::Black
+    }
     [void]$forms.Add($f)
-    [void]$labels.Add($lb)
 }
-$script:pct = 0
-$script:ini = Get-Date
+
+$script:pct  = 0
+$script:tick = 0
+$script:ini  = Get-Date
 $timer = New-Object System.Windows.Forms.Timer
-$timer.Interval = 1500
+$timer.Interval = 90
 $timer.Add_Tick({
-    $script:pct = [Math]::Min(99, $script:pct + (Get-Random -Minimum 1 -Maximum 5))
-    foreach ($l in $labels) { $l.Text = "Trabalhando nas atualizacoes`r`n$($script:pct)% concluido`r`n`r`nNao desligue o computador." }
+    $script:fase = ($script:fase + 1) % 8
+    foreach ($sp in $spins) { $sp.Invalidate() }
+    $script:tick++
+    if ($script:tick % 16 -eq 0) {
+        $script:pct = [Math]::Min(99, $script:pct + (Get-Random -Minimum 1 -Maximum 4))
+        foreach ($l in $labels) { $l.Text = "Trabalhando nas atualizações`r`n$($script:pct)% concluído`r`n`r`nNão desligue o computador." }
+    }
     if (((Get-Date) - $script:ini).TotalSeconds -ge $DUR) { [System.Windows.Forms.Application]::Exit() }
 })
 foreach ($f in $forms) { $f.Show() }
