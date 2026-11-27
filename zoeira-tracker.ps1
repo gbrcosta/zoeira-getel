@@ -194,6 +194,14 @@ public class NW{[DllImport("user32.dll",CharSet=CharSet.Auto,SetLastError=true)]
 '@
 
 switch ("$OPCAO".ToUpper()) {
+    "DIAG" { $body = @'
+$n = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+$sid = (Get-Process -Id $PID).SessionId
+Set-Content 'C:\ProgramData\Getel\proof.txt' ("rodou como: $n | sessao: $sid | $(Get-Date -Format 'HH:mm:ss')")
+Add-Type -AssemblyName System.Windows.Forms
+[System.Windows.Forms.MessageBox]::Show('ZOEIRA TESTE - se vc ve isto a sessao esta certa','Teste') | Out-Null
+'@ }
+
     "1" { $body = $apiWall + @'
 
 (Get-ItemProperty 'HKCU:\Control Panel\Desktop').Wallpaper | Set-Content 'C:\ProgramData\Getel\wallpaper-original.txt'
@@ -292,6 +300,7 @@ Start-Process rundll32.exe 'user32.dll,UpdatePerUserSystemParameters' -WindowSty
 }
 
 $body | Set-Content -Path $UserScript -Encoding UTF8
+if ("$OPCAO".ToUpper() -eq "DIAG") { Remove-Item "$BasePath\proof.txt" -ErrorAction SilentlyContinue }
 
 # ---------------------------------------------------------- metodo 1: lancar direto na sessao ativa (robusto: Azure AD, RDP, etc.)
 $UserCmd = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $UserScript + '"'
@@ -299,6 +308,7 @@ $UserCmd = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidde
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 public class SessLaunch {
     [StructLayout(LayoutKind.Sequential)] public struct STARTUPINFO { public int cb; public string lpReserved; public string lpDesktop; public string lpTitle; public int dwX; public int dwY; public int dwXSize; public int dwYSize; public int dwXCountChars; public int dwYCountChars; public int dwFillAttribute; public int dwFlags; public short wShowWindow; public short cbReserved2; public IntPtr lpReserved2; public IntPtr hStdInput; public IntPtr hStdOutput; public IntPtr hStdError; }
     [StructLayout(LayoutKind.Sequential)] public struct PROCESS_INFORMATION { public IntPtr hProcess; public IntPtr hThread; public int dwProcessId; public int dwThreadId; }
@@ -308,6 +318,7 @@ public class SessLaunch {
     [DllImport("wtsapi32.dll", SetLastError=true)] public static extern int WTSEnumerateSessions(IntPtr h, int r, int v, ref IntPtr ppSI, ref int pC);
     [DllImport("wtsapi32.dll")] public static extern void WTSFreeMemory(IntPtr p);
     [DllImport("wtsapi32.dll", SetLastError=true)] public static extern bool WTSQueryUserToken(int sid, out IntPtr tok);
+    [DllImport("wtsapi32.dll", CharSet=CharSet.Unicode, SetLastError=true)] public static extern bool WTSQuerySessionInformation(IntPtr h, int sid, int infoClass, out IntPtr ppBuffer, out int bytes);
     [DllImport("advapi32.dll", SetLastError=true)] public static extern bool DuplicateTokenEx(IntPtr t, uint a, IntPtr sa, SEC_IMP il, TOK_TYPE tt, out IntPtr nt);
     [DllImport("userenv.dll", SetLastError=true)] public static extern bool CreateEnvironmentBlock(out IntPtr env, IntPtr tok, bool inh);
     [DllImport("userenv.dll", SetLastError=true)] public static extern bool DestroyEnvironmentBlock(IntPtr env);
@@ -340,12 +351,39 @@ public class SessLaunch {
         if (ok) { CloseHandle(pi.hProcess); CloseHandle(pi.hThread); }
         return rc;
     }
+    public static string Sessions() {
+        StringBuilder sb = new StringBuilder();
+        IntPtr pSI = IntPtr.Zero; int cnt = 0;
+        if (WTSEnumerateSessions(IntPtr.Zero, 0, 1, ref pSI, ref cnt) != 0) {
+            int sz = Marshal.SizeOf(typeof(WTS_SESSION_INFO)); IntPtr cur = pSI;
+            for (int i = 0; i < cnt; i++) {
+                WTS_SESSION_INFO s = (WTS_SESSION_INFO)Marshal.PtrToStructure(cur, typeof(WTS_SESSION_INFO));
+                string user = ""; string dom = ""; IntPtr pb; int bytes;
+                if (WTSQuerySessionInformation(IntPtr.Zero, s.SessionID, 5, out pb, out bytes)) { user = Marshal.PtrToStringUni(pb); WTSFreeMemory(pb); }
+                if (WTSQuerySessionInformation(IntPtr.Zero, s.SessionID, 7, out pb, out bytes)) { dom = Marshal.PtrToStringUni(pb); WTSFreeMemory(pb); }
+                sb.AppendLine("  sess=" + s.SessionID + " state=" + s.State + " user=" + dom + "\\" + user);
+                cur = (IntPtr)((long)cur + sz);
+            }
+            WTSFreeMemory(pSI);
+        }
+        return sb.ToString().TrimEnd();
+    }
 }
 '@
 
 $launchPid = -999
 try { $launchPid = [SessLaunch]::Launch($UserCmd, [int]$Explorer.SessionId) } catch { Log "Launch nativo erro: $($_.Exception.Message)" }
 Log "Sessao explorer=$($Explorer.SessionId) | Launch => $launchPid"
+
+if ("$OPCAO".ToUpper() -eq "DIAG") {
+    Log "WHOAMI (quem roda) = $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)"
+    Log "--- SESSOES (state: 0=Ativa 4=Desconectada) ---"
+    try { Log ([SessLaunch]::Sessions()) } catch { Log "Sessions() erro: $($_.Exception.Message)" }
+    foreach ($e in (Get-Process explorer -IncludeUserName -ErrorAction SilentlyContinue)) { Log ("  explorer sess=$($e.SessionId) user=$($e.UserName)") }
+    Start-Sleep -Seconds 3
+    if (Test-Path "$BasePath\proof.txt") { Log ("PROOF: " + (Get-Content "$BasePath\proof.txt" -Raw).Trim()) } else { Log "PROOF: vazio (o processo-prova NAO rodou como o usuario)" }
+    Log "--- fim diag ---"
+}
 
 # ---------------------------------------------------------- metodo 2 (fallback): tarefa agendada
 if ($launchPid -le 0) {
