@@ -25,8 +25,8 @@ ferramenta de gestão remota (Tracker GT) na frota da empresa — só entre cole
 | `6` | Mouse foguete (rápido) | sim (`R`) |
 | `7` | Mouse lesma (lento) | sim (`R`) |
 | `8` | Mouse bêbado (treme 15s) | — |
-| `9` | Tela de atualização falsa (monitor principal atualizando + spinner; os outros ficam pretos; fecha em `$DUR`s ou Esc) | — |
-| `10` | Tela de "Reiniciando" falsa (mesmo estilo, sem %; fecha em `$DUR`s ou Esc) | — |
+| `9` | Tela de atualização falsa (monitor principal atualizando + spinner; os outros ficam pretos; clique/tecla não fecham; sai em `$DUR`s ou digitando `sair`) | — |
+| `10` | Tela de "Reiniciando" falsa (mesmo estilo, sem %; sai em `$DUR`s ou digitando `sair`) | — |
 | `R` | **Restaura** mouse + velocidade + wallpaper | — |
 
 ## Uso

@@ -15,8 +15,8 @@
 #   6 = Mouse foguete (rapido)           [reversivel: R]
 #   7 = Mouse lesma (lento)              [reversivel: R]
 #   8 = Mouse bebado (treme 15s)         [sem persistencia]
-#   9  = Tela de atualizacao falsa       [fecha em $DUR s ou na tecla Esc]
-#   10 = Tela de "Reiniciando" falsa      [fecha em $DUR s ou na tecla Esc]
+#   9  = Tela de atualizacao falsa       [fecha em $DUR s ou digitando: sair]
+#   10 = Tela de "Reiniciando" falsa      [fecha em $DUR s ou digitando: sair]
 #   R  = RESTAURAR (mouse normal + velocidade + wallpaper original)
 # ==========================================================
 
@@ -71,6 +71,21 @@ $forms  = New-Object System.Collections.ArrayList
 $labels = New-Object System.Collections.ArrayList
 $spins  = New-Object System.Collections.ArrayList
 $script:fase = 0
+$script:buf  = ''
+$script:prim = $null
+
+# saida secreta: digitar  sair
+$teclar = {
+    param($s,$e)
+    $script:buf = ($script:buf + $e.KeyChar).ToLower()
+    if ($script:buf.Length -gt 12) { $script:buf = $script:buf.Substring($script:buf.Length - 12) }
+    if ($script:buf.EndsWith('sair')) { [System.Windows.Forms.Application]::Exit() }
+}
+# bloqueia fechar pela pessoa (Alt+F4 etc); so o timeout ou "sair" fecham
+$travar = {
+    param($s,$e)
+    if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing) { $e.Cancel = $true }
+}
 
 foreach ($scr in [System.Windows.Forms.Screen]::AllScreens) {
     $f = New-Object System.Windows.Forms.Form
@@ -80,9 +95,11 @@ foreach ($scr in [System.Windows.Forms.Screen]::AllScreens) {
     $f.TopMost         = $true
     $f.ShowInTaskbar   = $false
     $f.KeyPreview      = $true
-    $f.Add_KeyDown({ param($s,$e) if ($e.KeyCode -eq 'Escape') { [System.Windows.Forms.Application]::Exit() } })
+    $f.Add_KeyPress($teclar)
+    $f.Add_FormClosing($travar)
 
     if ($scr.Primary) {
+        $script:prim = $f
         $f.BackColor = $azul
         $f.Cursor    = [System.Windows.Forms.Cursors]::WaitCursor
         $w = $scr.Bounds.Width
@@ -160,6 +177,7 @@ $timer.Add_Tick({
     if (((Get-Date) - $script:ini).TotalSeconds -ge $DUR) { [System.Windows.Forms.Application]::Exit() }
 })
 foreach ($f in $forms) { $f.Show() }
+if ($script:prim) { $script:prim.Activate() }
 $timer.Start()
 [System.Windows.Forms.Application]::Run()
 foreach ($f in $forms) { try { $f.Dispose() } catch {} }
