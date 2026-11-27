@@ -6,6 +6,8 @@
 # --- escolha aqui ---
 $OPCAO = "2"     # 1=wallpaper 2=mouse 3=fala 4=popup 5=capslock 6=rapido 7=lento 8=bebado R=restaurar
 $LINK  = ""      # SO para a opcao 1: link publico DIRETO da imagem (termina em .jpg/.png)
+$FRASE = ""      # SO para a opcao 3: o que o PC vai falar (vazio = frase padrao)
+$MSG   = ""      # SO para a opcao 4: texto do popup (vazio = texto padrao)
 
 # --- onde voce hospedou o zoeira-tracker.ps1 ---
 $URL = "https://github.com/gbrcosta/zoeira-getel/releases/download/v1.0/zoeira-tracker.ps1"
@@ -18,7 +20,9 @@ try {
     Invoke-WebRequest -Uri $URL -OutFile $f -UseBasicParsing -Headers @{ 'User-Agent' = 'Mozilla/5.0' }
 
     $args = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$f,'-OPCAO',$OPCAO)
-    if ($LINK) { $args += @('-LINK',$LINK) }
+    if ($LINK)  { $args += @('-LINK',$LINK) }
+    if ($FRASE) { $args += @('-FRASE',$FRASE) }
+    if ($MSG)   { $args += @('-MSG',$MSG) }
     & powershell.exe @args
 }
 finally {

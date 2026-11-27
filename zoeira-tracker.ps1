@@ -21,7 +21,8 @@
 param(
     [string]$OPCAO = "1",
     [string]$LINK  = "https://cdn.jornaldebrasilia.com.br/wp-content/uploads/2024/10/02161149/gretchen7.jpeg",
-    [string]$FRASE = "Ola humano. Seu chefe acabou de ver sua tela. Brincadeira... ou nao."
+    [string]$FRASE = "Ola humano. Seu chefe acabou de ver sua tela. Brincadeira... ou nao.",
+    [string]$MSG   = "Atualizacao critica: instalando pastel.exe (99%). Nao desligue o computador."
 )
 
 # ---------------------------------------------------------- infra
@@ -87,10 +88,10 @@ if (`$pt) { `$v.SelectVoice(`$pt.VoiceInfo.Name) }
 `$v.Speak('$($FRASE -replace "'", "''")')
 "@ }
 
-    "4" { $body = @'
+    "4" { $m = $MSG -replace "'", "''"; $body = @"
 Add-Type -AssemblyName System.Windows.Forms
-[System.Windows.Forms.MessageBox]::Show("Atualizacao critica: instalando pastel.exe (99%)`n`nNao desligue o computador.","Windows Update","OK","Information") | Out-Null
-'@ }
+[System.Windows.Forms.MessageBox]::Show('$m','Windows Update','OK','Information') | Out-Null
+"@ }
 
     "5" { $body = @'
 $sh = New-Object -ComObject WScript.Shell
