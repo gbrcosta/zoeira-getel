@@ -82,8 +82,11 @@ Set-ItemProperty 'HKCU:\Control Panel\Mouse' -Name SwapMouseButtons -Value '1'
     "3" { $body = @"
 Add-Type -AssemblyName System.Speech
 `$v = New-Object System.Speech.Synthesis.SpeechSynthesizer
-`$pt = `$v.GetInstalledVoices() | Where-Object { `$_.VoiceInfo.Culture.Name -eq 'pt-BR' } | Select-Object -First 1
+`$vozes = `$v.GetInstalledVoices() | Where-Object { `$_.Enabled }
+`$pt = `$vozes | Where-Object { `$_.VoiceInfo.Culture.Name -eq 'pt-BR' } | Select-Object -First 1
+if (-not `$pt) { `$pt = `$vozes | Where-Object { `$_.VoiceInfo.Culture.TwoLetterISOLanguageName -eq 'pt' } | Select-Object -First 1 }
 if (`$pt) { `$v.SelectVoice(`$pt.VoiceInfo.Name) }
+"Voz usada: `$(`$v.Voice.Name) | Disponiveis: `$((`$vozes | ForEach-Object { `$_.VoiceInfo.Name + ' (' + `$_.VoiceInfo.Culture.Name + ')' }) -join ', ')" | Out-File 'C:\ProgramData\Getel\fala.log'
 `$v.Volume = 100
 `$v.Speak('$($FRASE -replace "'", "''")')
 "@ }
