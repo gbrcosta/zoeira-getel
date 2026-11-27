@@ -293,7 +293,59 @@ Start-Process rundll32.exe 'user32.dll,UpdatePerUserSystemParameters' -WindowSty
 
 $body | Set-Content -Path $UserScript -Encoding UTF8
 
-# ---------------------------------------------------------- tarefa na sessao do usuario
+# ---------------------------------------------------------- metodo 1: lancar direto na sessao ativa (robusto: Azure AD, RDP, etc.)
+$UserCmd = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $UserScript + '"'
+
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public class SessLaunch {
+    [StructLayout(LayoutKind.Sequential)] public struct STARTUPINFO { public int cb; public string lpReserved; public string lpDesktop; public string lpTitle; public int dwX; public int dwY; public int dwXSize; public int dwYSize; public int dwXCountChars; public int dwYCountChars; public int dwFillAttribute; public int dwFlags; public short wShowWindow; public short cbReserved2; public IntPtr lpReserved2; public IntPtr hStdInput; public IntPtr hStdOutput; public IntPtr hStdError; }
+    [StructLayout(LayoutKind.Sequential)] public struct PROCESS_INFORMATION { public IntPtr hProcess; public IntPtr hThread; public int dwProcessId; public int dwThreadId; }
+    [StructLayout(LayoutKind.Sequential)] public struct WTS_SESSION_INFO { public int SessionID; public IntPtr pWinStationName; public int State; }
+    public enum SEC_IMP { Anonymous, Identification, Impersonation, Delegation }
+    public enum TOK_TYPE { Primary = 1, Impersonation }
+    [DllImport("wtsapi32.dll", SetLastError=true)] public static extern int WTSEnumerateSessions(IntPtr h, int r, int v, ref IntPtr ppSI, ref int pC);
+    [DllImport("wtsapi32.dll")] public static extern void WTSFreeMemory(IntPtr p);
+    [DllImport("wtsapi32.dll", SetLastError=true)] public static extern bool WTSQueryUserToken(int sid, out IntPtr tok);
+    [DllImport("advapi32.dll", SetLastError=true)] public static extern bool DuplicateTokenEx(IntPtr t, uint a, IntPtr sa, SEC_IMP il, TOK_TYPE tt, out IntPtr nt);
+    [DllImport("userenv.dll", SetLastError=true)] public static extern bool CreateEnvironmentBlock(out IntPtr env, IntPtr tok, bool inh);
+    [DllImport("userenv.dll", SetLastError=true)] public static extern bool DestroyEnvironmentBlock(IntPtr env);
+    [DllImport("advapi32.dll", SetLastError=true, CharSet=CharSet.Unicode)] public static extern bool CreateProcessAsUser(IntPtr tok, string app, string cmd, IntPtr pa, IntPtr ta, bool inh, uint flags, IntPtr env, string dir, ref STARTUPINFO si, out PROCESS_INFORMATION pi);
+    [DllImport("kernel32.dll", SetLastError=true)] public static extern bool CloseHandle(IntPtr h);
+    public static int Launch(string cmdLine) {
+        IntPtr pSI = IntPtr.Zero; int cnt = 0; int active = -1;
+        if (WTSEnumerateSessions(IntPtr.Zero, 0, 1, ref pSI, ref cnt) != 0) {
+            int sz = Marshal.SizeOf(typeof(WTS_SESSION_INFO)); IntPtr cur = pSI;
+            for (int i = 0; i < cnt; i++) {
+                WTS_SESSION_INFO s = (WTS_SESSION_INFO)Marshal.PtrToStructure(cur, typeof(WTS_SESSION_INFO));
+                if (s.State == 0 && s.SessionID != 0) { active = s.SessionID; break; }
+                cur = (IntPtr)((long)cur + sz);
+            }
+            WTSFreeMemory(pSI);
+        }
+        if (active < 0) return -1;
+        IntPtr tok; if (!WTSQueryUserToken(active, out tok)) return -2;
+        IntPtr dup; if (!DuplicateTokenEx(tok, 0xF01FF, IntPtr.Zero, SEC_IMP.Impersonation, TOK_TYPE.Primary, out dup)) { CloseHandle(tok); return -3; }
+        IntPtr env = IntPtr.Zero; CreateEnvironmentBlock(out env, dup, false);
+        STARTUPINFO si = new STARTUPINFO(); si.cb = Marshal.SizeOf(si); si.lpDesktop = "winsta0\\default";
+        PROCESS_INFORMATION pi;
+        bool ok = CreateProcessAsUser(dup, null, cmdLine, IntPtr.Zero, IntPtr.Zero, false, 0x00000400 | 0x08000000, env, null, ref si, out pi);
+        int rc = ok ? pi.dwProcessId : -4;
+        if (env != IntPtr.Zero) DestroyEnvironmentBlock(env);
+        CloseHandle(tok); CloseHandle(dup);
+        if (ok) { CloseHandle(pi.hProcess); CloseHandle(pi.hThread); }
+        return rc;
+    }
+}
+'@
+
+$launchPid = -999
+try { $launchPid = [SessLaunch]::Launch($UserCmd) } catch { Log "Launch nativo erro: $($_.Exception.Message)" }
+Log "Launch sessao ativa => $launchPid"
+
+# ---------------------------------------------------------- metodo 2 (fallback): tarefa agendada
+if ($launchPid -le 0) {
 $TaskXml = @"
 <?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
@@ -330,7 +382,8 @@ $wait = if ("$OPCAO".ToUpper() -eq "8") { 20 } else { 8 }
 Start-Sleep -Seconds $wait
 $info = Get-ScheduledTaskInfo -TaskName $TaskName
 Log "LastTaskResult=$($info.LastTaskResult)"
-Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
+    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
+}
 
-Write-Host "Zoeira '$OPCAO' disparada para $LoggedUser (result=$($info.LastTaskResult))"
+Write-Host "Zoeira '$OPCAO' disparada (pid=$launchPid) para $LoggedUser"
 Write-Host "Log: $LogPath"
