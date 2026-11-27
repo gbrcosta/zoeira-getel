@@ -8,7 +8,7 @@ $OPCAO = "2"     # 1=wallpaper  2=mouse  3=fala  4=popup  5=capslock  R=restaura
 $LINK  = ""      # SO para a opcao 1: link publico DIRETO da imagem (termina em .jpg/.png)
 
 # --- onde voce hospedou o zoeira-tracker.ps1 ---
-$URL = "https://SEU-SERVIDOR.com.br/zoeira-tracker.ps1"
+$URL = "https://github.com/gbrcosta/zoeira-getel/releases/download/v1.0/zoeira-tracker.ps1"
 
 # --- nao precisa mexer daqui pra baixo ---
 $f = Join-Path $env:TEMP "z.ps1"
