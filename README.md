@@ -22,7 +22,10 @@ ferramenta de gestão remota (Tracker GT) na frota da empresa — só entre cole
 | `3` | PC fala uma frase | — |
 | `4` | Popup falso do Windows | — |
 | `5` | Caps Lock piscando | — |
-| `R` | **Restaura** mouse + wallpaper | — |
+| `6` | Mouse foguete (rápido) | sim (`R`) |
+| `7` | Mouse lesma (lento) | sim (`R`) |
+| `8` | Mouse bêbado (treme 15s) | — |
+| `R` | **Restaura** mouse + velocidade + wallpaper | — |
 
 ## Uso
 

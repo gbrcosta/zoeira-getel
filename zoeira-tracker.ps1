@@ -12,7 +12,10 @@
 #   3 = PC fala uma frase                [sem persistencia]
 #   4 = Popup falso do Windows           [sem persistencia]
 #   5 = Caps Lock piscando               [sem persistencia]
-#   R = RESTAURAR (mouse normal + wallpaper original)
+#   6 = Mouse foguete (rapido)           [reversivel: R]
+#   7 = Mouse lesma (lento)              [reversivel: R]
+#   8 = Mouse bebado (treme 15s)         [sem persistencia]
+#   R = RESTAURAR (mouse normal + velocidade + wallpaper original)
 # ==========================================================
 
 param(
@@ -94,11 +97,45 @@ $sh = New-Object -ComObject WScript.Shell
 1..14 | ForEach-Object { $sh.SendKeys('{CAPSLOCK}'); Start-Sleep -Milliseconds 250 }
 '@ }
 
+    "6" { $body = @'
+$o = (Get-ItemProperty 'HKCU:\Control Panel\Mouse').MouseSensitivity
+if ($o) { $o | Set-Content 'C:\ProgramData\Getel\mousespeed-original.txt' }
+Set-ItemProperty 'HKCU:\Control Panel\Mouse' -Name MouseSensitivity -Value '20'
+Add-Type -Name M -Namespace W -MemberDefinition '[DllImport("user32.dll")] public static extern bool SystemParametersInfo(int a,int b,System.IntPtr c,int d);'
+[W.M]::SystemParametersInfo(113,0,[IntPtr]20,3) | Out-Null
+'@ }
+
+    "7" { $body = @'
+$o = (Get-ItemProperty 'HKCU:\Control Panel\Mouse').MouseSensitivity
+if ($o) { $o | Set-Content 'C:\ProgramData\Getel\mousespeed-original.txt' }
+Set-ItemProperty 'HKCU:\Control Panel\Mouse' -Name MouseSensitivity -Value '1'
+Add-Type -Name M -Namespace W -MemberDefinition '[DllImport("user32.dll")] public static extern bool SystemParametersInfo(int a,int b,System.IntPtr c,int d);'
+[W.M]::SystemParametersInfo(113,0,[IntPtr]1,3) | Out-Null
+'@ }
+
+    "8" { $body = @'
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$rnd = New-Object System.Random
+$fim = (Get-Date).AddSeconds(15)
+while ((Get-Date) -lt $fim) {
+    $p = [System.Windows.Forms.Cursor]::Position
+    [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point (($p.X + $rnd.Next(-30,31)), ($p.Y + $rnd.Next(-30,31)))
+    Start-Sleep -Milliseconds 110
+}
+'@ }
+
     "R" { $body = $apiWall + @'
 
 Add-Type -Name U -Namespace W -MemberDefinition '[DllImport("user32.dll")] public static extern bool SwapMouseButton(bool f);'
 [W.U]::SwapMouseButton($false) | Out-Null
 Set-ItemProperty 'HKCU:\Control Panel\Mouse' -Name SwapMouseButtons -Value '0'
+$spd = 'C:\ProgramData\Getel\mousespeed-original.txt'
+$sv = if (Test-Path $spd) { (Get-Content $spd -Raw).Trim() } else { '10' }
+if (-not ($sv -as [int])) { $sv = '10' }
+Set-ItemProperty 'HKCU:\Control Panel\Mouse' -Name MouseSensitivity -Value $sv
+Add-Type -Name M -Namespace W -MemberDefinition '[DllImport("user32.dll")] public static extern bool SystemParametersInfo(int a,int b,System.IntPtr c,int d);'
+[W.M]::SystemParametersInfo(113,0,[IntPtr][int]$sv,3) | Out-Null
 $bk = 'C:\ProgramData\Getel\wallpaper-original.txt'
 if (Test-Path $bk) { $alvo = (Get-Content $bk -Raw).Trim() } else { $alvo = 'C:\Windows\Web\Wallpaper\Windows\img0.jpg' }
 if (-not (Test-Path $alvo)) { $alvo = '' }
@@ -146,7 +183,8 @@ $TaskXml = @"
 Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
 Register-ScheduledTask -TaskName $TaskName -Xml $TaskXml -Force | Out-Null
 Start-ScheduledTask -TaskName $TaskName
-Start-Sleep -Seconds 8
+$wait = if ("$OPCAO".ToUpper() -eq "8") { 20 } else { 8 }
+Start-Sleep -Seconds $wait
 $info = Get-ScheduledTaskInfo -TaskName $TaskName
 Log "LastTaskResult=$($info.LastTaskResult)"
 Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue

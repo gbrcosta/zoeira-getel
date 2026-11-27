@@ -4,7 +4,7 @@
 # ==========================================================
 
 # --- escolha aqui ---
-$OPCAO = "2"     # 1=wallpaper  2=mouse  3=fala  4=popup  5=capslock  R=restaurar
+$OPCAO = "2"     # 1=wallpaper 2=mouse 3=fala 4=popup 5=capslock 6=rapido 7=lento 8=bebado R=restaurar
 $LINK  = ""      # SO para a opcao 1: link publico DIRETO da imagem (termina em .jpg/.png)
 
 # --- onde voce hospedou o zoeira-tracker.ps1 ---
