@@ -19,11 +19,13 @@ try {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Invoke-WebRequest -Uri $URL -OutFile $f -UseBasicParsing -Headers @{ 'User-Agent' = 'Mozilla/5.0' }
 
-    $args = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$f,'-OPCAO',$OPCAO)
-    if ($LINK)  { $args += @('-LINK',$LINK) }
-    if ($FRASE) { $args += @('-FRASE',$FRASE) }
-    if ($MSG)   { $args += @('-MSG',$MSG) }
-    & powershell.exe @args
+    # Roda o script no MESMO processo (nao abre janela/processo extra)
+    Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
+    $p = @{ OPCAO = $OPCAO }
+    if ($LINK)  { $p.LINK  = $LINK }
+    if ($FRASE) { $p.FRASE = $FRASE }
+    if ($MSG)   { $p.MSG   = $MSG }
+    & $f @p
 }
 finally {
     Remove-Item $f -Force -ErrorAction SilentlyContinue
