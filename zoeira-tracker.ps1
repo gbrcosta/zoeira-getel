@@ -15,8 +15,9 @@
 #   6 = Mouse foguete (rapido)           [reversivel: R]
 #   7 = Mouse lesma (lento)              [reversivel: R]
 #   8 = Mouse bebado (treme 15s)         [sem persistencia]
-#   9 = Tela de atualizacao falsa        [fecha em $DUR s ou na tecla Esc]
-#   R = RESTAURAR (mouse normal + velocidade + wallpaper original)
+#   9  = Tela de atualizacao falsa       [fecha em $DUR s ou na tecla Esc]
+#   10 = Tela de "Reiniciando" falsa      [fecha em $DUR s ou na tecla Esc]
+#   R  = RESTAURAR (mouse normal + velocidade + wallpaper original)
 # ==========================================================
 
 param(
@@ -55,10 +56,10 @@ if ($OPCAO -eq "1") {
     } catch { Log "Erro download: $($_.Exception.Message)"; Write-Host "Falha ao baixar a imagem: $($_.Exception.Message)"; exit 1 }
 }
 
-# tela de atualizacao falsa: grava o script que desenha a tela (roda na sessao do usuario)
-if ("$OPCAO".ToUpper() -eq "9") {
+# tela falsa (atualizando/reiniciando): grava o script que desenha a tela (roda na sessao do usuario)
+if ("$OPCAO" -eq "9" -or "$OPCAO" -eq "10") {
 @'
-param([int]$DUR = 60)
+param([int]$DUR = 60, [string]$MODO = 'update')
 if ($DUR -lt 5)   { $DUR = 60 }
 if ($DUR -gt 600) { $DUR = 600 }
 Add-Type -AssemblyName System.Windows.Forms
@@ -115,10 +116,15 @@ foreach ($scr in [System.Windows.Forms.Screen]::AllScreens) {
         $lb.Size      = New-Object System.Drawing.Size($w, 180)
         $lb.Location  = New-Object System.Drawing.Point(0, [int]($h/2 - 60))
         $lb.ForeColor = [System.Drawing.Color]::White
-        $lb.Font      = New-Object System.Drawing.Font('Segoe UI', 25)
         $lb.TextAlign = 'TopCenter'
         $lb.BackColor = [System.Drawing.Color]::Transparent
-        $lb.Text      = "Trabalhando nas atualizações`r`n0% concluído`r`n`r`nNão desligue o computador."
+        if ($MODO -eq 'restart') {
+            $lb.Font = New-Object System.Drawing.Font('Segoe UI', 32)
+            $lb.Text = "Reiniciando"
+        } else {
+            $lb.Font = New-Object System.Drawing.Font('Segoe UI', 25)
+            $lb.Text = "Trabalhando nas atualizações`r`n0% concluído`r`n`r`nNão desligue o computador."
+        }
         $f.Controls.Add($lb)
         [void]$labels.Add($lb)
     } else {
@@ -136,7 +142,7 @@ $timer.Add_Tick({
     $script:fase = ($script:fase + 1) % 8
     foreach ($sp in $spins) { $sp.Invalidate() }
     $script:tick++
-    if ($script:tick % 16 -eq 0) {
+    if ($MODO -eq 'update' -and $script:tick % 16 -eq 0) {
         $script:pct = [Math]::Min(99, $script:pct + (Get-Random -Minimum 1 -Maximum 4))
         foreach ($l in $labels) { $l.Text = "Trabalhando nas atualizações`r`n$($script:pct)% concluído`r`n`r`nNão desligue o computador." }
     }
@@ -227,7 +233,11 @@ while ((Get-Date) -lt $fim) {
 '@ }
 
     "9" { $body = @"
-Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File','C:\ProgramData\Getel\fakeupdate.ps1','-DUR','$DUR'
+Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File','C:\ProgramData\Getel\fakeupdate.ps1','-DUR','$DUR','-MODO','update'
+"@ }
+
+    "10" { $body = @"
+Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File','C:\ProgramData\Getel\fakeupdate.ps1','-DUR','$DUR','-MODO','restart'
 "@ }
 
     "R" { $body = $apiWall + @'

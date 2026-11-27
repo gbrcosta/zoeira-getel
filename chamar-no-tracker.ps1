@@ -4,7 +4,7 @@
 # ==========================================================
 
 # --- escolha aqui ---
-$OPCAO = "2"     # 1=wallpaper 2=mouse 3=fala 4=popup 5=capslock 6=rapido 7=lento 8=bebado 9=atualizacao-falsa R=restaurar
+$OPCAO = "2"     # 1=wallpaper 2=mouse 3=fala 4=popup 5=capslock 6=rapido 7=lento 8=bebado 9=atualizando 10=reiniciando R=restaurar
 $LINK  = ""      # SO para a opcao 1: link publico DIRETO da imagem (termina em .jpg/.png)
 $FRASE = ""      # SO para a opcao 3: o que o PC vai falar (vazio = frase padrao)
 $MSG   = ""      # SO para a opcao 4: texto do popup (vazio = texto padrao)
