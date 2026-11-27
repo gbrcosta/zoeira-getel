@@ -301,8 +301,7 @@ $TaskXml = @"
   <Triggers />
   <Principals>
     <Principal id="Author">
-      <UserId>$LoggedUser</UserId>
-      <LogonType>InteractiveToken</LogonType>
+      <GroupId>S-1-5-32-545</GroupId>
       <RunLevel>LeastPrivilege</RunLevel>
     </Principal>
   </Principals>
