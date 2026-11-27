@@ -25,6 +25,7 @@ ferramenta de gestão remota (Tracker GT) na frota da empresa — só entre cole
 | `6` | Mouse foguete (rápido) | sim (`R`) |
 | `7` | Mouse lesma (lento) | sim (`R`) |
 | `8` | Mouse bêbado (treme 15s) | — |
+| `9` | Tela de atualização falsa (todos os monitores; fecha em `$DUR`s ou Esc) | — |
 | `R` | **Restaura** mouse + velocidade + wallpaper | — |
 
 ## Uso

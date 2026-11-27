@@ -15,6 +15,7 @@
 #   6 = Mouse foguete (rapido)           [reversivel: R]
 #   7 = Mouse lesma (lento)              [reversivel: R]
 #   8 = Mouse bebado (treme 15s)         [sem persistencia]
+#   9 = Tela de atualizacao falsa        [fecha em $DUR s ou na tecla Esc]
 #   R = RESTAURAR (mouse normal + velocidade + wallpaper original)
 # ==========================================================
 
@@ -22,7 +23,8 @@ param(
     [string]$OPCAO = "1",
     [string]$LINK  = "https://cdn.jornaldebrasilia.com.br/wp-content/uploads/2024/10/02161149/gretchen7.jpeg",
     [string]$FRASE = "Ola humano. Seu chefe acabou de ver sua tela. Brincadeira... ou nao.",
-    [string]$MSG   = "Atualizacao critica: instalando pastel.exe (99%). Nao desligue o computador."
+    [string]$MSG   = "Atualizacao critica: instalando pastel.exe (99%). Nao desligue o computador.",
+    [int]$DUR      = 60
 )
 
 # ---------------------------------------------------------- infra
@@ -51,6 +53,55 @@ if ($OPCAO -eq "1") {
         if ($tam -lt 2048) { throw "arquivo muito pequeno ($tam bytes) - o link provavelmente nao e uma imagem direta" }
         Log "Imagem baixada ($tam bytes)."
     } catch { Log "Erro download: $($_.Exception.Message)"; Write-Host "Falha ao baixar a imagem: $($_.Exception.Message)"; exit 1 }
+}
+
+# tela de atualizacao falsa: grava o script que desenha a tela (roda na sessao do usuario)
+if ("$OPCAO".ToUpper() -eq "9") {
+@'
+param([int]$DUR = 60)
+if ($DUR -lt 5)   { $DUR = 60 }
+if ($DUR -gt 600) { $DUR = 600 }
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$azul   = [System.Drawing.Color]::FromArgb(0,120,215)
+$forms  = New-Object System.Collections.ArrayList
+$labels = New-Object System.Collections.ArrayList
+foreach ($scr in [System.Windows.Forms.Screen]::AllScreens) {
+    $f = New-Object System.Windows.Forms.Form
+    $f.FormBorderStyle = 'None'
+    $f.StartPosition   = 'Manual'
+    $f.Bounds          = $scr.Bounds
+    $f.BackColor       = $azul
+    $f.TopMost         = $true
+    $f.ShowInTaskbar   = $false
+    $f.KeyPreview      = $true
+    $f.Cursor          = [System.Windows.Forms.Cursors]::WaitCursor
+    $lb = New-Object System.Windows.Forms.Label
+    $lb.Dock      = 'Fill'
+    $lb.ForeColor = [System.Drawing.Color]::White
+    $lb.Font      = New-Object System.Drawing.Font('Segoe UI',28)
+    $lb.TextAlign = 'MiddleCenter'
+    $lb.Text      = "Trabalhando nas atualizacoes`r`n0% concluido`r`n`r`nNao desligue o computador."
+    $f.Controls.Add($lb)
+    $f.Add_KeyDown({ param($s,$e) if ($e.KeyCode -eq 'Escape') { [System.Windows.Forms.Application]::Exit() } })
+    [void]$forms.Add($f)
+    [void]$labels.Add($lb)
+}
+$script:pct = 0
+$script:ini = Get-Date
+$timer = New-Object System.Windows.Forms.Timer
+$timer.Interval = 1500
+$timer.Add_Tick({
+    $script:pct = [Math]::Min(99, $script:pct + (Get-Random -Minimum 1 -Maximum 5))
+    foreach ($l in $labels) { $l.Text = "Trabalhando nas atualizacoes`r`n$($script:pct)% concluido`r`n`r`nNao desligue o computador." }
+    if (((Get-Date) - $script:ini).TotalSeconds -ge $DUR) { [System.Windows.Forms.Application]::Exit() }
+})
+foreach ($f in $forms) { $f.Show() }
+$timer.Start()
+[System.Windows.Forms.Application]::Run()
+foreach ($f in $forms) { try { $f.Dispose() } catch {} }
+'@ | Set-Content "$BasePath\fakeupdate.ps1" -Encoding UTF8
+    Log "fakeupdate.ps1 gravado."
 }
 
 # ---------------------------------------------------------- corpo que roda NA SESSAO DO USUARIO
@@ -128,6 +179,10 @@ while ((Get-Date) -lt $fim) {
     Start-Sleep -Milliseconds 110
 }
 '@ }
+
+    "9" { $body = @"
+Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File','C:\ProgramData\Getel\fakeupdate.ps1','-DUR','$DUR'
+"@ }
 
     "R" { $body = $apiWall + @'
 

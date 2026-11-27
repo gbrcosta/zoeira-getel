@@ -4,10 +4,11 @@
 # ==========================================================
 
 # --- escolha aqui ---
-$OPCAO = "2"     # 1=wallpaper 2=mouse 3=fala 4=popup 5=capslock 6=rapido 7=lento 8=bebado R=restaurar
+$OPCAO = "2"     # 1=wallpaper 2=mouse 3=fala 4=popup 5=capslock 6=rapido 7=lento 8=bebado 9=atualizacao-falsa R=restaurar
 $LINK  = ""      # SO para a opcao 1: link publico DIRETO da imagem (termina em .jpg/.png)
 $FRASE = ""      # SO para a opcao 3: o que o PC vai falar (vazio = frase padrao)
 $MSG   = ""      # SO para a opcao 4: texto do popup (vazio = texto padrao)
+$DUR   = ""      # SO para a opcao 9: segundos ate a tela fechar sozinha (vazio = 60; Esc fecha na hora)
 
 # --- onde voce hospedou o zoeira-tracker.ps1 ---
 $URL = "https://github.com/gbrcosta/zoeira-getel/releases/download/v1.0/zoeira-tracker.ps1"
@@ -25,6 +26,7 @@ try {
     if ($LINK)  { $p.LINK  = $LINK }
     if ($FRASE) { $p.FRASE = $FRASE }
     if ($MSG)   { $p.MSG   = $MSG }
+    if ($DUR)   { $p.DUR   = $DUR }
     & $f @p
 }
 finally {
